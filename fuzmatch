@@ -1,5 +1,6 @@
 #!/usr/bin/env ruby
 
+require 'optparse'
 require_relative 'matcher'
 
 Options = Struct.new(:limit, :prefix_scores, :no_sort)
@@ -8,7 +9,7 @@ options.prefix_scores = false
 options.no_sort = false
 
 op = OptionParser.new do |opts|
-  opts.banner = 'Usage: fuzmatch [-l LIMIT] QUERY [FILE...]'
+  opts.banner = 'Usage: fuzmatch [-l LIMIT] [-su] QUERY [FILE...]'
 
   opts.separator ''
   opts.separator 'Options:'
@@ -36,7 +37,7 @@ begin
   op.parse!
   if ARGV.length < 1
     puts "Missing mandatory query argument."
-    puts op
+    puts "", op.banner
     exit
   end
   q = Matcher::Query.new(ARGV.shift)
