@@ -16,22 +16,15 @@ class Matcher
     def score_path(path)
       PathMatch.new(path, self)
     end
-
   end
 
   class PathMatch
-    attr_reader :path, :path_len, :max_score_per_char
-    attr_accessor :score, :dot_file
+    attr_reader :path, :path_len, :score
 
     def initialize(path, q)
       @path = path
       @path_len = path.length()
       @max_score_per_char = (1.0 / @path_len + 1.0 / q.query_len) / 2.0
-      @dot_file = false
-      @subscores = Hash.new do |h, args|
-        q = args.shift
-        h[args] = self.send(:compute_subscore, q, *args)
-      end
       @score =
         case
         when q.query_len < @path_len
@@ -61,8 +54,8 @@ class Matcher
             end
             next_path_pos = path_pos + 1
             if @path_len - next_path_pos > q.query_len - query_pos
-              score_alt = score +
-                @subscores[[q, query_pos, next_path_pos, last_path_pos]]
+              score_alt = score + self.compute_subscore(
+                q, query_pos, next_path_pos, last_path_pos)
               best_score = score_alt if score_alt > best_score
             end
             score += pc_score
