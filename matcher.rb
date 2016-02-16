@@ -9,8 +9,8 @@ class Matcher
     attr_reader :query, :query_len
 
     def initialize(query)
-      @query = query
-      @query_len = query.length
+      @query = query.downcase
+      @query_len = @query.length
     end
 
     def score_path(path)
@@ -25,6 +25,14 @@ class Matcher
       @path = path
       @path_len = path.length()
       @max_score_per_char = (1.0 / @path_len + 1.0 / q.query_len) / 2.0
+      @char_rxs = Hash.new do |h, c|
+        h[c] = Regexp.new(Regexp.escape(c), Regexp::IGNORECASE)
+      end
+      @offsets = Hash.new do |h, c|
+        os = []
+        @path.scan(@char_rxs[c]) {|x| os << $~.offset(0)[0]}
+        h[c] = os
+      end
       @score =
         case
         when q.query_len < @path_len
@@ -39,37 +47,33 @@ class Matcher
     def compute_subscore(q, query_beg = 0, path_beg = 0, last_path_pos = -1)
       best_score = 0.0
       score = 0.0
-      pc_prev = path_beg > 0 ? @path[path_beg - 1] : nil
       for query_pos in query_beg...q.query_len
-        qc_match = false
         qc = q.query[query_pos]
-        for path_pos in path_beg...@path_len
-          pc = @path[path_pos]
-          if qc.casecmp(pc) == 0
-            qc_match = true
-            pc_score = @max_score_per_char
-            distance = path_pos - last_path_pos
-            if distance > 1 && !(qc == File::SEPARATOR || qc == '.')
-              pc_score *= self.compute_factor(pc, pc_prev, distance)
-            end
-            next_path_pos = path_pos + 1
-            if @path_len - next_path_pos > q.query_len - query_pos
-              score_alt = score + self.compute_subscore(
-                q, query_pos, next_path_pos, last_path_pos)
-              best_score = score_alt if score_alt > best_score
-            end
-            score += pc_score
-            last_path_pos = path_pos
-            pc_prev = pc
-            break
-          else
-            pc_prev = pc
-          end
+        path_pos, next_path_pos = self.find_next_matches(qc, path_beg)
+        return 0.0 if path_pos.nil?
+        pc = @path[path_pos]
+        pc_score = @max_score_per_char
+        distance = path_pos - last_path_pos
+        if distance > 1 && !(qc == File::SEPARATOR || qc == '.')
+          pc_prev = path_pos > 0 ? @path[path_pos - 1] : nil
+          pc_score *= self.compute_factor(pc, pc_prev, distance)
         end
-        return 0.0 if !qc_match
+        if next_path_pos
+          score_alt = score + self.compute_subscore(
+            q, query_pos, next_path_pos, last_path_pos)
+          best_score = score_alt if score_alt > best_score
+        end
+        score += pc_score
+        last_path_pos = path_pos
         path_beg = path_pos + 1
       end
       score > best_score ? score : best_score
+    end
+
+    def find_next_matches(qc, path_beg)
+      os = @offsets[qc]
+      idx = (0...os.length).bsearch {|i| os[i] >= path_beg}
+      idx.nil? ? [] : os[idx, 2]
     end
 
     def compute_factor(pc, pc_prev, distance)
