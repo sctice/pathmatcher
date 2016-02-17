@@ -1,5 +1,12 @@
 require 'set'
 
+begin
+  require_relative '../ext/cpathmatch'
+  HAVE_CPATH_MATCH = true
+rescue LoadError
+  HAVE_CPATH_MATCH = false
+end
+
 class Matcher
   WORDBREAK_CHARS = Set['-', '_', ' '] + ('0'..'9')
   LOWER = ('a'..'z')
@@ -14,12 +21,13 @@ class Matcher
     end
 
     def score_path(path)
-      PathMatch.new(path, self)
+      klass = HAVE_CPATH_MATCH ? CPathMatch : PathMatch
+      klass.new(path, self)
     end
   end
 
   class PathMatch
-    attr_reader :path, :path_len, :score
+    attr_reader :path, :score
 
     def initialize(path, q)
       @path = path

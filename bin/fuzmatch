@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'optparse'
-require_relative 'matcher'
+require_relative '../lib/matcher'
 
 Options = Struct.new(:limit, :prefix_scores, :no_sort)
 options = Options.new

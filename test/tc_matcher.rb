@@ -1,5 +1,5 @@
 require 'test/unit'
-require_relative 'matcher'
+require_relative '../lib/matcher'
 
 class TestMatcher < Test::Unit::TestCase
   def test_non_match
