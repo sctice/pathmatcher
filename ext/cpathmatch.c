@@ -1,5 +1,6 @@
 #include <ruby.h>
 #include <ctype.h>
+#include <strings.h>
 
 /**
  * The path separator on the current system, according to File::SEPARATOR. It's
@@ -7,6 +8,12 @@
  * initializing this extension.
  */
 static char kPathSep;
+
+typedef struct
+{
+  unsigned char initialized;
+  long *pos;
+} pos_list_t;
 
 /**
  * Everything we need to know about a path and the query we're trying to match
@@ -20,6 +27,7 @@ typedef struct
   const char *path;
   long path_len;
   double max_score_per_char;
+  pos_list_t pos_list[256];
 } pathmatch_t;
 
 /**
@@ -29,8 +37,11 @@ typedef struct
  * compute the score we'd get if we didn't take the match (i.e., if we looked
  * for the _next_ path character that matches).
  */
-void find_next_2_matches(
-    const pathmatch_t *pm, char qc, long p_beg, long *p_pos, long *p_pos_next);
+long find_next_match(
+    pathmatch_t *pm, char qc, long p_beg);
+
+void init_pos_list(
+    pos_list_t *pl, pathmatch_t *pm, char qc);
 
 /**
  * Computes the diminishing factor for a path character given the previous
@@ -48,7 +59,7 @@ double compute_factor(
  */
 double
 compute_score(
-    const pathmatch_t *pm,
+    pathmatch_t *pm,
     long q_beg,
     long p_beg,
     long p_pos_last)
@@ -58,7 +69,7 @@ compute_score(
   char qc, pc, pc_prev;
   for (q_pos = q_beg; q_pos < pm->query_len; q_pos++) {
     qc = pm->query[q_pos];
-    find_next_2_matches(pm, qc, p_beg, &p_pos, &p_pos_next);
+    p_pos = find_next_match(pm, qc, p_beg);
     if (p_pos == -1) {
       return 0.0;
     }
@@ -69,6 +80,7 @@ compute_score(
       pc_prev = pm->path[p_pos - 1];
       pc_score *= compute_factor(pc, pc_prev, distance);
     }
+    p_pos_next = find_next_match(pm, qc, p_pos + 1);
     if (p_pos_next != -1) {
       score_alt = score + compute_score(pm, q_pos, p_pos_next, p_pos_last);
       if (score_alt > best_score) {
@@ -82,27 +94,50 @@ compute_score(
   return score > best_score ? score : best_score;
 }
 
-void
-find_next_2_matches(
-    const pathmatch_t *pm,
+long
+find_next_match(
+    pathmatch_t *pm,
     char qc,
-    long p_beg,
-    long *p_pos,
-    long *p_pos_next)
+    long p_beg)
 {
-  const char *pc, *p_end = pm->path + pm->path_len;
-  *p_pos = -1;
-  for (pc = pm->path + p_beg; pc < p_end; pc++) {
-    if (qc == tolower(*pc)) {
-      *p_pos = pc - pm->path;
-      break;
+  pos_list_t *pl;
+  if (p_beg < pm->path_len) {
+    pl = pm->pos_list + (unsigned char)qc;
+    if (!pl->initialized) {
+      init_pos_list(pl, pm, qc);
+    }
+    return pl->pos[p_beg];
+  }
+  return -1;
+}
+
+void
+init_pos_list(
+    pos_list_t *pl,
+    pathmatch_t *pm,
+    char qc)
+{
+  long i = pm->path_len - 1, last = -1;
+  const char *pc = pm->path + i;
+  pl->pos = malloc(pm->path_len * sizeof(long));
+  pl->initialized = 1;
+  for (; pc >= pm->path; pc--, i--) {
+    if (qc != tolower(*pc)) {
+      pl->pos[i] = last;
+    } else {
+      pl->pos[i] = i;
+      last = i;
     }
   }
-  *p_pos_next = -1;
-  for (pc = pc + 1; pc < p_end; pc++) {
-    if (qc == tolower(*pc)) {
-      *p_pos_next = pc - pm->path;
-      break;
+}
+
+void
+free_pos_list(
+    pos_list_t *pl)
+{
+  for (int i = 0; i < 256; i++) {
+    if (pl[i].initialized) {
+      free(pl[i].pos);
     }
   }
 }
@@ -142,15 +177,22 @@ CPathMatch_initialize(VALUE self, VALUE rb_path, VALUE rb_oQuery)
   char *path = StringValuePtr(rb_path);
   long path_len = RSTRING_LEN(rb_path);
 
-  pathmatch_t pm;
-  pm.query = query;
-  pm.query_len = query_len;
-  pm.path = path;
-  pm.path_len = path_len;
-  pm.max_score_per_char = (1.0 / path_len + 1.0 / query_len) / 2.0;
+  double score = 0.0;
 
-  double score = compute_score(&pm,
-      /* q_beg */ 0, /* p_beg */ 0, /* p_pos_last */ -1);
+  if (path_len > 0) {
+    pathmatch_t pm;
+    pm.query = query;
+    pm.query_len = query_len;
+    pm.path = path;
+    pm.path_len = path_len;
+    pm.max_score_per_char = (1.0 / path_len + 1.0 / query_len) / 2.0;
+    bzero(pm.pos_list, 256 * sizeof(pos_list_t));
+
+    score = compute_score(&pm,
+        /* q_beg */ 0, /* p_beg */ 0, /* p_pos_last */ -1);
+
+    free_pos_list(pm.pos_list);
+  }
 
   rb_iv_set(self, "@path", rb_path);
   rb_iv_set(self, "@score", DBL2NUM(score));
