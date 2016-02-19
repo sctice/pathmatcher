@@ -1,6 +1,7 @@
 #include <ruby.h>
-#include <ctype.h>
-#include <strings.h>
+
+#include <ctype.h>   // tolower()
+#include <strings.h> // bzero()
 
 #define POS_MAP_SIZE 256
 
@@ -222,7 +223,7 @@ PathMatchC_initialize(VALUE self, VALUE rb_path, VALUE rb_oQuery)
  * - Sets up kPathSep from File::SEPARATOR.
  */
 void
-Init_cpathmatch()
+Init_pathmatchc()
 {
   VALUE cMatcher = rb_define_class("Matcher", rb_cObject);
   VALUE cPathMatchC = rb_define_class_under(

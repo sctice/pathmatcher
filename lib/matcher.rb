@@ -1,7 +1,7 @@
 require 'set'
 
 begin
-  require_relative '../ext/cpathmatch'
+  require_relative '../ext/pathmatchc'
   HAVE_PATH_MATCH_C = true
 rescue LoadError
   HAVE_PATH_MATCH_C = false
