@@ -2,9 +2,9 @@ require 'set'
 
 begin
   require_relative '../ext/cpathmatch'
-  HAVE_CPATH_MATCH = true
+  HAVE_PATH_MATCH_C = true
 rescue LoadError
-  HAVE_CPATH_MATCH = false
+  HAVE_PATH_MATCH_C = false
 end
 
 class Matcher
@@ -21,7 +21,7 @@ class Matcher
     end
 
     def score_path(path)
-      klass = HAVE_CPATH_MATCH ? CPathMatch : PathMatch
+      klass = HAVE_PATH_MATCH_C ? PathMatchC : PathMatch
       klass.new(path, self)
     end
   end

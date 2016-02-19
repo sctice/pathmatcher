@@ -2,6 +2,8 @@
 #include <ctype.h>
 #include <strings.h>
 
+#define POS_MAP_SIZE 256
+
 /**
  * The path separator on the current system, according to File::SEPARATOR. It's
  * not truly a constant, but it should be defined exactly once when
@@ -9,6 +11,11 @@
  */
 static char kPathSep;
 
+/**
+ * A cache structure to remember the positions in the target path at which a
+ * particular character occurs and to allow finding in constant time the next
+ * position given any current position.
+ */
 typedef struct
 {
   unsigned char initialized;
@@ -27,28 +34,22 @@ typedef struct
   const char *path;
   long path_len;
   double max_score_per_char;
-  pos_list_t pos_list[256];
+  pos_list_t qc_pos_map[POS_MAP_SIZE];
 } pathmatch_t;
 
-/**
- * Finds the positions of (up to) the next two path characters that match the
- * current query character, storing the results in the passed in p_pos and
- * p_pos_next. This is helpful because, each time we find a match, we also
- * compute the score we'd get if we didn't take the match (i.e., if we looked
- * for the _next_ path character that matches).
- */
+
+/* Begin prototypes */
+
 long find_next_match(
     pathmatch_t *pm, char qc, long p_beg);
 
 void init_pos_list(
     pos_list_t *pl, pathmatch_t *pm, char qc);
 
-/**
- * Computes the diminishing factor for a path character given the previous
- * character and how far away it is from the last matched path character.
- */
 double compute_factor(
     char pc, char pc_prev, long distance);
+
+/* End prototypes */
 
 /**
  * Computes the score for a path and query, starting from specified positions
@@ -94,6 +95,13 @@ compute_score(
   return score > best_score ? score : best_score;
 }
 
+/**
+ * Finds the positions of (up to) the next two path characters that match the
+ * current query character, storing the results in the passed in p_pos and
+ * p_pos_next. This is helpful because, each time we find a match, we also
+ * compute the score we'd get if we didn't take the match (i.e., if we looked
+ * for the _next_ path character that matches).
+ */
 long
 find_next_match(
     pathmatch_t *pm,
@@ -102,7 +110,7 @@ find_next_match(
 {
   pos_list_t *pl;
   if (p_beg < pm->path_len) {
-    pl = pm->pos_list + (unsigned char)qc;
+    pl = pm->qc_pos_map + (unsigned char)qc;
     if (!pl->initialized) {
       init_pos_list(pl, pm, qc);
     }
@@ -111,6 +119,13 @@ find_next_match(
   return -1;
 }
 
+/**
+ * Allocates an array the same size as the target path, then fills each entry
+ * e_i with the position of the next qc match, starting from position i. This
+ * is accomplished in one scan over the path by starting at the end and working
+ * backward, filling the current entry with the last position a match was seen
+ * at. If there is no previous match, then the entry is set to -1.
+ */
 void
 init_pos_list(
     pos_list_t *pl,
@@ -131,17 +146,10 @@ init_pos_list(
   }
 }
 
-void
-free_pos_list(
-    pos_list_t *pl)
-{
-  for (int i = 0; i < 256; i++) {
-    if (pl[i].initialized) {
-      free(pl[i].pos);
-    }
-  }
-}
-
+/**
+ * Computes the diminishing factor for a path character given the previous
+ * character and how far away it is from the last matched path character.
+ */
 double
 compute_factor(
     char pc,
@@ -163,12 +171,12 @@ compute_factor(
 }
 
 /**
- * The CPathMatch.initialize method. It fetches everything it needs in order to
+ * The PathMatchC.initialize method. It fetches everything it needs in order to
  * compute a match score from the passed path (a String) and Query, then passes
  * it off to compute_score().
  */
 VALUE
-CPathMatch_initialize(VALUE self, VALUE rb_path, VALUE rb_oQuery)
+PathMatchC_initialize(VALUE self, VALUE rb_path, VALUE rb_oQuery)
 {
   VALUE rb_query = rb_funcall(rb_oQuery, rb_intern("query"), 0);
   char *query = StringValuePtr(rb_query);
@@ -186,12 +194,18 @@ CPathMatch_initialize(VALUE self, VALUE rb_path, VALUE rb_oQuery)
     pm.path = path;
     pm.path_len = path_len;
     pm.max_score_per_char = (1.0 / path_len + 1.0 / query_len) / 2.0;
-    bzero(pm.pos_list, 256 * sizeof(pos_list_t));
+    bzero(pm.qc_pos_map, POS_MAP_SIZE * sizeof(pos_list_t));
 
     score = compute_score(&pm,
         /* q_beg */ 0, /* p_beg */ 0, /* p_pos_last */ -1);
 
-    free_pos_list(pm.pos_list);
+    pos_list_t *pl = pm.qc_pos_map;
+    int i = 0;
+    for (; i < POS_MAP_SIZE; pl++, i++) {
+      if (pl->initialized) {
+        free(pl->pos);
+      }
+    }
   }
 
   rb_iv_set(self, "@path", rb_path);
@@ -201,24 +215,24 @@ CPathMatch_initialize(VALUE self, VALUE rb_path, VALUE rb_oQuery)
 }
 
 /**
- * Initialize the extension:
+ * Initializes the extension:
  *
- * - Add a CPathMatch class to the Matcher module with the same interface and
+ * - Adds a PathMatchC class to the Matcher module with the same interface and
  *   behavior as PathMatch, but with the expensive match logic done in C.
- * - Set up kPathSep from File::SEPARATOR.
+ * - Sets up kPathSep from File::SEPARATOR.
  */
 void
 Init_cpathmatch()
 {
   VALUE cMatcher = rb_define_class("Matcher", rb_cObject);
-  VALUE cCPathMatch = rb_define_class_under(
-      cMatcher, "CPathMatch", rb_cObject);
+  VALUE cPathMatchC = rb_define_class_under(
+      cMatcher, "PathMatchC", rb_cObject);
 
-  rb_define_method(cCPathMatch,
-      "initialize", CPathMatch_initialize, /* argc */ 2);
+  rb_define_method(cPathMatchC,
+      "initialize", PathMatchC_initialize, /* argc */ 2);
 
-  rb_define_attr(cCPathMatch, "path",  /* read */ 1, /* write */ 0);
-  rb_define_attr(cCPathMatch, "score", /* read */ 1, /* write */ 0);
+  rb_define_attr(cPathMatchC, "path",  /* read */ 1, /* write */ 0);
+  rb_define_attr(cPathMatchC, "score", /* read */ 1, /* write */ 0);
 
   // Get the path separator character from File::SEPARATOR and store it
   // statically.
