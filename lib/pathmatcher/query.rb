@@ -1,9 +1,9 @@
-module Matcher
+module PathMatcher
   class Query
     attr_reader :query, :query_len
 
     def self.build(query)
-      self.new(query, Matcher::PathMatch)
+      self.new(query, PathMatcher::PathMatch)
     end
 
     def initialize(query, pathmatch_class)

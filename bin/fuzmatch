@@ -1,9 +1,0 @@
-#!/usr/bin/env ruby
-
-require_relative '../lib/matcher'
-
-begin
-  Matcher.invoke(ARGV, ARGF)
-rescue Interrupt
-  exit
-end

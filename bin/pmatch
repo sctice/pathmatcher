@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+
+require_relative '../lib/pathmatcher'
+
+begin
+  PathMatcher.invoke(ARGV, ARGF)
+rescue Interrupt
+  exit
+end

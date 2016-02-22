@@ -1,6 +1,6 @@
 require 'set'
 
-module Matcher
+module PathMatcher
   WORDBREAK_CHARS = Set['-', '_', ' '] + ('0'..'9')
   LOWER = ('a'..'z')
   UPPER = ('A'..'Z')

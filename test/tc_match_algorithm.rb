@@ -1,7 +1,7 @@
 require 'test/unit'
-require_relative '../lib/matcher'
+require_relative '../lib/pathmatcher'
 
-class TestMatcher < Test::Unit::TestCase
+class TestPathMatchAlgorithm < Test::Unit::TestCase
   def test_non_match
     assert_score 0.0000, 'a',     ''
     assert_score 0.0000, 'a',     'x'
@@ -90,7 +90,7 @@ class TestMatcher < Test::Unit::TestCase
   end
 
   def assert_score(s_exp, query, path, msg = nil)
-    q = Matcher::Query.new(query)
+    q = PathMatcher::Query.build(query)
     p = q.score_path(path)
     s_str = sprintf('%.4f', p.score)
     msg = build_message(msg, 'query = ?, path = ?, score = ?',

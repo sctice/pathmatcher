@@ -1,6 +1,6 @@
 require 'optparse'
 
-module Matcher
+module PathMatcher
   Options = Struct.new(:limit, :prefix_scores, :no_sort)
 
   module_function
@@ -56,7 +56,7 @@ module Matcher
   end
 
   def match_query(query_in, run_opts, argf)
-    q = Matcher::Query.build(query_in)
+    q = Query.build(query_in)
     matches = []
     argf.each_line do |path|
       pm = q.score_path(path)
