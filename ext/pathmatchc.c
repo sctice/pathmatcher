@@ -225,9 +225,9 @@ PathMatchC_initialize(VALUE self, VALUE rb_path, VALUE rb_oQuery)
 void
 Init_pathmatchc()
 {
-  VALUE cMatcher = rb_define_class("Matcher", rb_cObject);
+  VALUE mMatcher = rb_define_module("Matcher");
   VALUE cPathMatchC = rb_define_class_under(
-      cMatcher, "PathMatchC", rb_cObject);
+      mMatcher, "PathMatchC", rb_cObject);
 
   rb_define_method(cPathMatchC,
       "initialize", PathMatchC_initialize, /* argc */ 2);

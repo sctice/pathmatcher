@@ -1,63 +1,9 @@
 #!/usr/bin/env ruby
 
-require 'optparse'
 require_relative '../lib/matcher'
 
-Options = Struct.new(:limit, :prefix_scores, :no_sort)
-options = Options.new
-options.prefix_scores = false
-options.no_sort = false
-
-op = OptionParser.new do |opts|
-  opts.banner = 'Usage: fuzmatch [-l LIMIT] [-su] QUERY [FILE...]'
-
-  opts.separator ''
-  opts.separator 'Options:'
-
-  opts.on('-l', '--limit N', Integer,
-          'Limit results to top N matches') do |limit|
-    options.limit = limit
-  end
-
-  opts.on('-s', '--scores', 'Prefix matched paths with their scores') do
-    options.prefix_scores = true
-  end
-
-  opts.on('-u', '--no-sort', 'Do not sort matched paths by score') do
-    options.no_sort = true
-  end
-
-  opts.on('-h', '--help', 'Print this help') do
-    puts opts
-    exit
-  end
-end
-
 begin
-  op.parse!
-  if ARGV.length < 1
-    puts "Missing mandatory query argument."
-    puts "", op.banner
-    exit
-  end
-  q = Matcher::Query.new(ARGV.shift)
-  paths = []
-  ARGF.each_line do |path|
-    p = q.score_path(path)
-    paths << p if p.score > 0.0
-  end
-  paths.sort_by! { |p| -p.score } if !options.no_sort
-  paths.take(options.limit || paths.size).each do |p|
-    if options.prefix_scores
-      line = sprintf('%5d %s', (p.score * 1e4).to_i, p.path)
-    else
-      line = p.path
-    end
-    puts line
-  end
-rescue OptionParser::InvalidOption => e
-  op.warn(e)
-  puts "", op.banner
+  Matcher.invoke(ARGV, ARGF)
 rescue Interrupt
   exit
 end
