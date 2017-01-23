@@ -1,4 +1,3 @@
-bin/
 ext/.RUBYARCHDIR.time
 ext/pathmatchc/Makefile
 ext/pathmatchc/*.bundle
