@@ -1,4 +1,6 @@
+*.o
+*.so
+*.bundle
 ext/.RUBYARCHDIR.time
 ext/pathmatchc/Makefile
-ext/pathmatchc/*.bundle
 ext/pathmatchc/mkmf.log
