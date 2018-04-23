@@ -1,3 +1,5 @@
-ext/Makefile
-ext/*.bundle
-ext/mkmf.log
+bin/
+ext/.RUBYARCHDIR.time
+ext/pathmatchc/Makefile
+ext/pathmatchc/*.bundle
+ext/pathmatchc/mkmf.log

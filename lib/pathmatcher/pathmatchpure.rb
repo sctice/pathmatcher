@@ -22,7 +22,9 @@ module PathMatcher
       end
       @score =
         case
-        when q.query_len < @path_len
+        when q.query_len == 0
+          1.0
+        when @path_len > 0 && q.query_len < @path_len
           self.compute_subscore(q)
         when q.query_len > @path_len
           0.0

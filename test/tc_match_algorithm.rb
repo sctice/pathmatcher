@@ -1,7 +1,10 @@
-require 'test/unit'
-require_relative '../lib/pathmatcher'
+require_relative '../lib/pathmatcher/pathmatchpure'
 
-class TestPathMatchAlgorithm < Test::Unit::TestCase
+class TestPathMatchAlgorithm < Minitest::Unit::TestCase
+  def setup
+    @path_match = PathMatcher::PathMatchPure
+  end
+
   def test_non_match
     assert_score 0.0000, 'a',     ''
     assert_score 0.0000, 'a',     'x'
@@ -12,6 +15,7 @@ class TestPathMatchAlgorithm < Test::Unit::TestCase
   end
 
   def test_single_component_match
+    assert_score 1.0000, '',      'a'
     assert_score 1.0000, 'a',     'a'
     assert_score 0.7500, 'a',     'ax'
     assert_score 0.2812, 'a',     'xa'
@@ -90,11 +94,9 @@ class TestPathMatchAlgorithm < Test::Unit::TestCase
   end
 
   def assert_score(s_exp, query, path, msg = nil)
-    q = PathMatcher::Query.build(query)
-    p = q.score_path(path)
-    s_str = sprintf('%.4f', p.score)
-    msg = build_message(msg, 'query = ?, path = ?, score = ?',
-      query, path, s_str)
-    assert_in_delta s_exp, p.score, 1e-4, msg
+    q = PathMatcher::Query.new(query, @path_match)
+    m = q.score_path(path)
+    msg ||= sprintf('query = %s path = %s, score = %.4f', query, path, m.score)
+    assert_in_delta s_exp, m.score, 1e-4, msg
   end
 end
